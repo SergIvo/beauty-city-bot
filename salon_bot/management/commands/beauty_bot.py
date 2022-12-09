@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from ...models import User, Service, Specialist, Salon, Purchase
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.utils.request import Request
+from .inline_button import *
 from telegram.ext import (
     Updater,
     CommandHandler,
@@ -15,19 +16,11 @@ from telegram.ext import (
     CallbackContext,
 )
 
-saloon = ''
-master = ''
-service = ''
 
 load_dotenv()
 TOKEN_TG = os.getenv('TOKEN_TG')
 logger = logging.getLogger(__name__)
-
-# Stages
 FIRST, SECOND = range(2)
-# Callback data
-ONE, TWO, THREE, FOUR, FIVE = range(5)
-
 CALLBACK_SERVICE = 'callback_service'
 PERSONAL_AREA = 'personal_area'
 CHOICE_SALOON = 'choice_saloon'
@@ -68,177 +61,9 @@ TITLES = {
 }
 
 
-def start(update: Update, context: CallbackContext) -> int:
-    """Send message on `/start`."""
-    user = update.message.from_user
-    logger.info("User %s started the conversation.", user.first_name)
-
-    keyboard = [
-        [
-            InlineKeyboardButton(TITLES['callback_service'], callback_data=CALLBACK_SERVICE),
-        ],
-        [
-            InlineKeyboardButton(TITLES['personal_area'], callback_data=PERSONAL_AREA),
-        ],
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text("Что вы хотите сделать?", reply_markup=reply_markup)
-    return FIRST
-
-
-def start_over(update: Update, context: CallbackContext) -> int:
-    """Prompt same text & keyboard as `start` does but not as new message"""
-    # Get CallbackQuery from Update
-    query = update.callback_query
-    # CallbackQueries need to be answered, even if no notification to the user is needed
-    # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
-    query.answer()
-    keyboard = [
-        [
-            InlineKeyboardButton(TITLES['callback_service'], callback_data=CALLBACK_SERVICE),
-            InlineKeyboardButton(TITLES['personal_area'], callback_data=PERSONAL_AREA),
-        ]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    query.edit_message_text(text="Что вы хотите сделать?", reply_markup=reply_markup)
-    return FIRST
-
-
-def one(update: Update, context: CallbackContext) -> int:
-    """Show new choice of buttons"""
-    query = update.callback_query
-    query.answer()
-    keyboard = [
-        [
-            InlineKeyboardButton(TITLES['choice_saloon'], callback_data=CHOICE_SALOON),
-        ],
-        [
-            InlineKeyboardButton(TITLES['choice_master'], callback_data=CHOICE_MASTER),
-        ],
-        [
-            InlineKeyboardButton(TITLES['choice_service'], callback_data=CHOICE_SERVICE),
-        ],
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    query.edit_message_text(
-        text="Выберете дальнейшее действие", reply_markup=reply_markup
-    )
-    return FIRST
-
-
-def two(update: Update, context: CallbackContext) -> int:
-    """Личный кабинет"""
-    query = update.callback_query
-    query.answer()
-    keyboard = [
-        [
-            InlineKeyboardButton("История заказов", callback_data=str(ONE)),
-            InlineKeyboardButton("Записаться", callback_data=str(ONE)),
-        ],
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    query.edit_message_text(
-        text="Что вы хотите сделать?", reply_markup=reply_markup
-    )
-    return FIRST
-
-
-def three(update: Update, context: CallbackContext) -> int:
-    """Show new choice of buttons"""
-    query = update.callback_query
-    query.answer()
-    service = TITLES[query.data]
-    print(query)
-    print(f'{service}, {saloon}, {master}')
-    if service and saloon and master:
-        return END
-    keyboard = [
-        [
-            InlineKeyboardButton(TITLES['saloon_pionerskaya'], callback_data=SALOON_PIONERSKAYA),
-        ],
-        [
-            InlineKeyboardButton(TITLES['saloon_moskovskaya'], callback_data=SALOON_MOSKOVSKAYA),
-        ],
-        [
-            InlineKeyboardButton(TITLES['saloon_leningradskaya'], callback_data=SALOON_LENINGRADSKAYA),
-        ],
-        [
-            InlineKeyboardButton(TITLES['saloon_kamishovaya'], callback_data=SALOON_KAMISHOVAYA),
-        ]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    query.edit_message_text(
-        text="Выберете подходящий салон из списка", reply_markup=reply_markup
-    )
-    # Transfer to conversation state `SECOND`
-    return CHOICE_SALOON
-
-
-def four(update: Update, context: CallbackContext) -> int:
-    """Show new choice of buttons"""
-    query = update.callback_query
-    query.answer()
-    # reply_markup
-    # inline_keyboard
-    # text
-    saloon = TITLES[query.data]
-    print(f'{service}, {saloon}, {master}')
-    keyboard = [
-        [
-            InlineKeyboardButton(TITLES['first_master'], callback_data=FIRST_MASTER),
-        ],
-        [
-            InlineKeyboardButton(TITLES['second_master'], callback_data=SECOND_MASTER),
-        ],
-        [
-            InlineKeyboardButton(TITLES['third_master'], callback_data=THIRD_MASTER),
-        ],
-        [
-            InlineKeyboardButton(TITLES['fourth_master'], callback_data=FOURTH_MASTER),
-        ]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    query.edit_message_text(
-        text="Выберете подходящего мастера из списка", reply_markup=reply_markup
-    )
-    return CHOICE_MASTER
-
-
-def five(update: Update, context: CallbackContext) -> int:
-    """Show new choice of buttons"""
-    query = update.callback_query
-    query.answer()
-    master = TITLES[query.data]
-    print(f'{service}, {saloon}, {master}')
-    keyboard = [
-        [
-            InlineKeyboardButton(TITLES['haircut'], callback_data=HAIRCUT),
-        ],
-        [
-            InlineKeyboardButton(TITLES['manicure'], callback_data=MANICURE),
-        ],
-        [
-            InlineKeyboardButton(TITLES['solarium'], callback_data=SOLARIUM),
-        ],
-        [
-            InlineKeyboardButton(TITLES['coloring'], callback_data=COLORING),
-        ]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    query.edit_message_text(
-        text="Выберете подходящего услугу из списка", reply_markup=reply_markup
-    )
-    return CHOICE_SERVICE
-
-
-def end(update: Update, context: CallbackContext) -> int:
-    """Returns `ConversationHandler.END`, which tells the
-    ConversationHandler that the conversation is over.
-    """
-    query = update.callback_query
-    query.answer()
-    query.edit_message_text(text="See you next time!")
-    return ConversationHandler.END
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
+)
 
 
 def publish_photo(update: Update, context: CallbackContext):
@@ -250,6 +75,11 @@ def publish_photo(update: Update, context: CallbackContext):
 
 class Command(BaseCommand):
     help = 'Команда настройки Telegram-бота в приложении Django.'
+
+    def __init__(self):
+        self.saloon = ''
+        self.specialist = ''
+        self.service = ''
 
     def handle(self, *args, **kwargs):
         request = Request(
@@ -264,101 +94,268 @@ class Command(BaseCommand):
         updater = Updater(TOKEN_TG)
         dispatcher = updater.dispatcher
         conv_handler = ConversationHandler(
-            entry_points=[CommandHandler('start', start)],
+            entry_points=[CommandHandler('start', self.start)],
             states={
                 FIRST: [
-                    CallbackQueryHandler(one, pattern='^' + CALLBACK_SERVICE + '$', pass_user_data=True),
-                    CallbackQueryHandler(two, pattern='^' + PERSONAL_AREA + '$', pass_user_data=True),
-                    CallbackQueryHandler(three, pattern='^' + CHOICE_SALOON + '$', pass_user_data=True),
-                    CallbackQueryHandler(four, pattern='^' + CHOICE_MASTER + '$', pass_user_data=True),
-                    CallbackQueryHandler(five, pattern='^' + CHOICE_SERVICE + '$', pass_user_data=True),
+                    CallbackQueryHandler(self.one, pattern='^' + CALLBACK_SERVICE + '$', pass_user_data=True),
+                    CallbackQueryHandler(self.two, pattern='^' + PERSONAL_AREA + '$', pass_user_data=True),
+                    CallbackQueryHandler(self.three, pattern='^' + CHOICE_SALOON + '$', pass_user_data=True),
+                    CallbackQueryHandler(self.four, pattern='^' + CHOICE_MASTER + '$', pass_user_data=True),
+                    CallbackQueryHandler(self.five, pattern='^' + CHOICE_SERVICE + '$', pass_user_data=True),
                 ],
                 CHOICE_MASTER: [
-                    CallbackQueryHandler(five, pass_user_data=True),
+                    CallbackQueryHandler(self.five, pass_user_data=True),
                 ],
                 CHOICE_SALOON: [
-                    CallbackQueryHandler(four, pass_user_data=True),
+                    CallbackQueryHandler(self.four, pass_user_data=True),
                 ],
                 CHOICE_SERVICE: [
-                    CallbackQueryHandler(three, pass_user_data=True),
+                    CallbackQueryHandler(self.three, pass_user_data=True),
                 ],
                 END: [
-                    CallbackQueryHandler(end, ),
+                    CallbackQueryHandler(self.end, pass_user_data=True),
                 ],
             },
-            fallbacks=[CommandHandler('start', start)],
+            fallbacks=[CommandHandler('start', self.start)],
         )
         dispatcher.add_handler(conv_handler)
         updater.start_polling()
         updater.idle()
 
+    def get_or_create_user(self, chat_id, update: Update):
+        user, _ = User.objects.get_or_create(
+            chat_id=chat_id,
+            defaults={
+                'name': update.effective_message.chat.username,
+            }
+        )
+        return user
+
+    def start(self, update: Update, context: CallbackContext) -> int:
+        """Send message on `/start`."""
+        user = update.message.from_user
+        logger.info("User %s started the conversation.", user.first_name)
+
+        keyboard = [
+            [
+                InlineKeyboardButton(TITLES['callback_service'], callback_data=CALLBACK_SERVICE),
+            ],
+            [
+                InlineKeyboardButton(TITLES['personal_area'], callback_data=PERSONAL_AREA),
+            ],
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        update.message.reply_text("Что вы хотите сделать?", reply_markup=reply_markup)
+        return FIRST
+
+    def one(self, update: Update, context: CallbackContext) -> int:
+        """Show new choice of buttons"""
+        chat_id = update.effective_message.chat_id
+        print(f'мое имя {update.effective_message.chat.username}')
+        user = self.get_or_create_user(chat_id, update)
+        purchase, _ = Purchase.objects.get_or_create(
+            user=user,
+        )
+        query = update.callback_query
+        query.answer()
+        keyboard = [
+            [
+                InlineKeyboardButton(TITLES['choice_saloon'], callback_data=CHOICE_SALOON),
+            ],
+            [
+                InlineKeyboardButton(TITLES['choice_master'], callback_data=CHOICE_MASTER),
+            ],
+            [
+                InlineKeyboardButton(TITLES['choice_service'], callback_data=CHOICE_SERVICE),
+            ],
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        query.edit_message_text(
+            text="Выберете дальнейшее действие", reply_markup=reply_markup
+        )
+        return FIRST
+
+    def two(self, update: Update, context: CallbackContext) -> int:
+        """Личный кабинет"""
+
+        query = update.callback_query
+        query.answer()
+        keyboard = [
+            [
+                InlineKeyboardButton("История заказов", callback_data=str(ONE)),
+                InlineKeyboardButton("Записаться", callback_data=str(ONE)),
+            ],
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        query.edit_message_text(
+            text="Что вы хотите сделать?", reply_markup=reply_markup
+        )
+        return FIRST
+
+    def three(self, update: Update, context: CallbackContext) -> int:
+        """Show new choice of buttons"""
+        query = update.callback_query
+        query.answer()
+
+        chat_id = update.effective_message.chat_id
+        user = self.get_or_create_user(chat_id, update)
+        salons = [sal.address for sal in Salon.objects.all()]
+        masters = [spe.name for spe in Specialist.objects.all()]
+        services = [ser.title for ser in Service.objects.all()]
+
+        if query.data in services:
+            self.service = query.data
+        elif query.data in salons:
+            self.saloon = query.data
+        elif query.data in masters:
+            self.specialist = query.data
+        if self.saloon and self.service and self.specialist:
+            return END
+        print('вы выбрали следующие пункты:', self.saloon, self.service, self.specialist)
+
+        salons = Salon.objects.all()
+        [salon for salon in salons]
+
+        keyboard = [
+            [
+                InlineKeyboardButton(f'Салон на {salons[0]}', callback_data=salons[0].address),
+            ],
+            [
+                InlineKeyboardButton(f'Салон на {salons[1]}', callback_data=salons[1].address),
+            ],
+            [
+                InlineKeyboardButton(f'Салон на {salons[2]}', callback_data=salons[2].address),
+            ],
+            [
+                InlineKeyboardButton(f'Салон на {salons[3]}', callback_data=salons[3].address),
+            ]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        query.edit_message_text(
+            text="Выберете подходящий салон из списка", reply_markup=reply_markup
+        )
+
+        # Transfer to conversation state `SECOND`
+        return CHOICE_SALOON
+
+    def four(self, update: Update, context: CallbackContext) -> int:
+        """Show new choice of buttons"""
+        query = update.callback_query
+        query.answer()
+        salons = [sal.address for sal in Salon.objects.all()]
+        masters = [spe.name for spe in Specialist.objects.all()]
+        servicess = [ser.title for ser in Service.objects.all()]
+        chat_id = update.effective_message.chat_id
+
+        specialists = Salon.objects.filter(address=query.data).first().specialists.all()
+        services = [service.title for service in specialists[0].services.all()]
+        user = self.get_or_create_user(chat_id, update)
+
+        if query.data in servicess:
+            self.service = query.data
+        elif query.data in salons:
+            self.saloon = query.data
+        elif query.data in masters:
+            self.specialist = query.data
+        if self.saloon and self.service and self.specialist:
+            return END
+        print('вы выбрали следующие пункты:', self.saloon, self.service, self.specialist)
 
 
-# bot = Bot(token=TOKEN_TG, )
-# updates = bot.get_updates()
-#
-# # Enable logging
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
-)
+        keyboard = [
+            [
+                InlineKeyboardButton(
+                    f'Мастер {specialists[0].name}: {", ".join([service.title for service in specialists[0].services.all()])}',
+                    callback_data=specialists[0].name),
+            ],
+            [
+                InlineKeyboardButton(
+                    f'Мастер {specialists[1].name}: {", ".join([service.title for service in specialists[1].services.all()])}',
+                    callback_data=specialists[1].name),
+            ],
+            [
+                InlineKeyboardButton(
+                    f'Мастер {specialists[2].name}: {", ".join([service.title for service in specialists[2].services.all()])}',
+                    callback_data=specialists[2].name),
+            ],
+            [
+                InlineKeyboardButton(
+                    f'Мастер {specialists[3].name}: {", ".join([service.title for service in specialists[2].services.all()])}',
+                    callback_data=specialists[3].name),
+            ],
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        query.edit_message_text(
+            text="Выберете подходящего мастера из списка", reply_markup=reply_markup
+        )
+        return CHOICE_MASTER
+
+    def five(self, update: Update, context: CallbackContext) -> int:
+        """Show new choice of buttons"""
+
+        chat_id = update.effective_message.chat_id
+
+        salons = [sal.address for sal in Salon.objects.all()]
+        masters = [spe.name for spe in Specialist.objects.all()]
+        servicess = [ser.title for ser in Service.objects.all()]
+
+        query = update.callback_query
+        query.answer()
+        chat_id = update.effective_message.chat_id
+        print('ghhghghghghghgh', query.data)
+        services = Specialist.objects.get(name=query.data).services.all()
+
+        user = self.get_or_create_user(chat_id, update)
+
+        if query.data in servicess:
+            self.service = query.data
+        elif query.data in salons:
+            self.saloon = query.data
+        elif query.data in masters:
+            self.specialist = query.data
+        if self.saloon and self.service and self.specialist:
+            return END
+        print('вы выбрали следующие пункты:', self.saloon, self.service, self.specialist)
+
+        if len(services) == 1:
+            query.edit_message_text(
+                text="Выберете подходящего услугу из списка",
+                reply_markup=keyboard_one_button(services)
+            )
+        if len(services) == 2:
+            query.edit_message_text(
+                text="Выберете подходящего услугу из списка",
+                reply_markup=keyboard_two_button(services),
+            )
+
+        return END
+
+    def end(self, update: Update, context: CallbackContext) -> int:
+
+        query = update.callback_query
+        self.service = query.data
+        p = Purchase(
+            salon=Salon.objects.get(address=self.saloon),
+            specialist=Specialist.objects.get(name=self.specialist),
+            service=Service.objects.get(title=self.service)
+        )
+        p.save()
+        query.answer()
+        keyboard = [
+            [
+                InlineKeyboardButton("Подтвердить", callback_data="Подтвердить"),
+            ],
+        ]
+        query.edit_message_text(
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            text=f"""Вы выбрали:
+                    салон на улице ➡ {self.saloon}, 
+                    мастер ➡ {self.specialist}, 
+                    услуга ➡ {self.service} 
+                    цена ➡ {p.service.price} рублей""",
+        )
 
 
 
 
-
-
-# def main() -> None:
-#     """Run the bot."""
-#     # Create the Updater and pass it your bot's token.
-#     updater = Updater(TOKEN_TG)
-#
-#     # Get the dispatcher to register handlers
-#     dispatcher = updater.dispatcher
-#
-#     # ^ means "start of line/string"
-#     # $ means "end of line/string"
-#     # So ^ABC$ will only allow 'ABC'
-#     conv_handler = ConversationHandler(
-#         entry_points=[CommandHandler('start', start)],
-#         states={
-#             FIRST: [
-#                 CallbackQueryHandler(one, pattern='^' + CALLBACK_SERVICE + '$', pass_user_data=True),
-#                 CallbackQueryHandler(two, pattern='^' + PERSONAL_AREA + '$', pass_user_data=True),
-#                 CallbackQueryHandler(three, pattern='^' + CHOICE_SALOON + '$', pass_user_data=True),
-#                 CallbackQueryHandler(four, pattern='^' + CHOICE_MASTER + '$', pass_user_data=True),
-#                 CallbackQueryHandler(five, pattern='^' + CHOICE_SERVICE + '$', pass_user_data=True),
-#             ],
-#             CHOICE_MASTER: [
-#                 # CallbackQueryHandler(start_over, pattern='^' + str(ONE) + '$'),
-#                 CallbackQueryHandler(five, pass_user_data=True),
-#             ],
-#             CHOICE_SALOON: [
-#                 # CallbackQueryHandler(start_over, pattern='^' + str(ONE) + '$'),
-#                 CallbackQueryHandler(four, pass_user_data=True),
-#             ],
-#             CHOICE_SERVICE: [
-#                 # CallbackQueryHandler(start_over, pattern='^' + str(ONE) + '$'),
-#                 CallbackQueryHandler(three, pass_user_data=True),
-#             ],
-#             END: [
-#                 # CallbackQueryHandler(start_over, pattern='^' + str(ONE) + '$'),
-#                 CallbackQueryHandler(end,),
-#             ],
-#         },
-#         fallbacks=[CommandHandler('start', start)],
-#     )
-#
-#     # Add ConversationHandler to dispatcher that will be used for handling updates
-#     dispatcher.add_handler(conv_handler)
-#
-#     # Start the Bot
-#     updater.start_polling()
-#
-#     # Run the bot until you press Ctrl-C or the process receives SIGINT,
-#     # SIGTERM or SIGABRT. This should be used most of the time, since
-#     # start_polling() is non-blocking and will stop the bot gracefully.
-#     updater.idle()
-#
-#
-# if __name__ == '__main__':
-#     main()
