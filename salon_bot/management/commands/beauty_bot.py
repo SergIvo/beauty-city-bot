@@ -1,10 +1,10 @@
 import os
 import logging
+from ...models import User, Service, Specialist, Salon, Purchase
 from pathlib import Path
 from django.core.management.base import BaseCommand
 from telegram import Update, Bot
 from dotenv import load_dotenv
-from ...models import User, Service, Specialist, Salon, Purchase
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.utils.request import Request
 from .inline_button import *
@@ -80,6 +80,8 @@ class Command(BaseCommand):
         self.saloon = ''
         self.specialist = ''
         self.service = ''
+        self.services = ''
+        self.username = ''
 
     def handle(self, *args, **kwargs):
         request = Request(
@@ -152,10 +154,8 @@ class Command(BaseCommand):
         """Show new choice of buttons"""
         chat_id = update.effective_message.chat_id
         print(f'мое имя {update.effective_message.chat.username}')
+        self.username = update.effective_message.chat.username
         user = self.get_or_create_user(chat_id, update)
-        purchase, _ = Purchase.objects.get_or_create(
-            user=user,
-        )
         query = update.callback_query
         query.answer()
         keyboard = [
@@ -210,34 +210,31 @@ class Command(BaseCommand):
         elif query.data in masters:
             self.specialist = query.data
         if self.saloon and self.service and self.specialist:
-            return END
-        print('вы выбрали следующие пункты:', self.saloon, self.service, self.specialist)
+            self.end(update, context)
+        else:
+            salons = Salon.objects.all()
+            [salon for salon in salons]
 
-        salons = Salon.objects.all()
-        [salon for salon in salons]
-
-        keyboard = [
-            [
-                InlineKeyboardButton(f'Салон на {salons[0]}', callback_data=salons[0].address),
-            ],
-            [
-                InlineKeyboardButton(f'Салон на {salons[1]}', callback_data=salons[1].address),
-            ],
-            [
-                InlineKeyboardButton(f'Салон на {salons[2]}', callback_data=salons[2].address),
-            ],
-            [
-                InlineKeyboardButton(f'Салон на {salons[3]}', callback_data=salons[3].address),
+            keyboard = [
+                [
+                    InlineKeyboardButton(f'Салон на {salons[0]}', callback_data=salons[0].address),
+                ],
+                [
+                    InlineKeyboardButton(f'Салон на {salons[1]}', callback_data=salons[1].address),
+                ],
+                [
+                    InlineKeyboardButton(f'Салон на {salons[2]}', callback_data=salons[2].address),
+                ],
+                [
+                    InlineKeyboardButton(f'Салон на {salons[3]}', callback_data=salons[3].address),
+                ]
             ]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
+            reply_markup = InlineKeyboardMarkup(keyboard)
 
-        query.edit_message_text(
-            text="Выберете подходящий салон из списка", reply_markup=reply_markup
-        )
-
-        # Transfer to conversation state `SECOND`
-        return CHOICE_SALOON
+            query.edit_message_text(
+                text="Выберете подходящий салон из списка", reply_markup=reply_markup
+            )
+            return CHOICE_SALOON
 
     def four(self, update: Update, context: CallbackContext) -> int:
         """Show new choice of buttons"""
@@ -247,65 +244,46 @@ class Command(BaseCommand):
         masters = [spe.name for spe in Specialist.objects.all()]
         servicess = [ser.title for ser in Service.objects.all()]
         chat_id = update.effective_message.chat_id
-
-        specialists = Salon.objects.filter(address=query.data).first().specialists.all()
-        services = [service.title for service in specialists[0].services.all()]
-        user = self.get_or_create_user(chat_id, update)
+        specialists = Specialist.objects.all()
+        # user = self.get_or_create_user(chat_id, update)
 
         if query.data in servicess:
             self.service = query.data
+        elif query.data in salons and self.service:
+            self.saloon = query.data
+            service = Service.objects.filter(title=self.service).first()
+            salon = Salon.objects.filter(address=query.data).first()
+            specialists = Specialist.objects.filter(services=service).filter(salons=salon)
         elif query.data in salons:
             self.saloon = query.data
+            specialists = Salon.objects.filter(address=query.data).first().specialists.all()
         elif query.data in masters:
             self.specialist = query.data
+
         if self.saloon and self.service and self.specialist:
-            return END
-        print('вы выбрали следующие пункты:', self.saloon, self.service, self.specialist)
-
-
-        keyboard = [
-            [
-                InlineKeyboardButton(
-                    f'Мастер {specialists[0].name}: {", ".join([service.title for service in specialists[0].services.all()])}',
-                    callback_data=specialists[0].name),
-            ],
-            [
-                InlineKeyboardButton(
-                    f'Мастер {specialists[1].name}: {", ".join([service.title for service in specialists[1].services.all()])}',
-                    callback_data=specialists[1].name),
-            ],
-            [
-                InlineKeyboardButton(
-                    f'Мастер {specialists[2].name}: {", ".join([service.title for service in specialists[2].services.all()])}',
-                    callback_data=specialists[2].name),
-            ],
-            [
-                InlineKeyboardButton(
-                    f'Мастер {specialists[3].name}: {", ".join([service.title for service in specialists[2].services.all()])}',
-                    callback_data=specialists[3].name),
-            ],
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        query.edit_message_text(
-            text="Выберете подходящего мастера из списка", reply_markup=reply_markup
-        )
-        return CHOICE_MASTER
+            self.end(update, context)
+        else:
+            if len(specialists) == 1:
+                reply_markup = keyboard_one_specialist_button(specialists)
+            elif len(specialists) == 2:
+                reply_markup = keyboard_two_specialist_button(specialists)
+            else:
+                reply_markup = keyboard_four_specialist_button(specialists)
+            query.edit_message_text(
+                text="Выберете подходящего мастера из списка", reply_markup=reply_markup
+            )
+            return CHOICE_MASTER
 
     def five(self, update: Update, context: CallbackContext) -> int:
         """Show new choice of buttons"""
 
         chat_id = update.effective_message.chat_id
-
         salons = [sal.address for sal in Salon.objects.all()]
         masters = [spe.name for spe in Specialist.objects.all()]
         servicess = [ser.title for ser in Service.objects.all()]
-
         query = update.callback_query
         query.answer()
         chat_id = update.effective_message.chat_id
-        print('ghhghghghghghgh', query.data)
-        services = Specialist.objects.get(name=query.data).services.all()
-
         user = self.get_or_create_user(chat_id, update)
 
         if query.data in servicess:
@@ -314,28 +292,40 @@ class Command(BaseCommand):
             self.saloon = query.data
         elif query.data in masters:
             self.specialist = query.data
+            self.services = Specialist.objects.get(name=query.data).services.all()
+        elif query.data == CHOICE_SERVICE:
+            self.services = Service.objects.all()
         if self.saloon and self.service and self.specialist:
-            return END
-        print('вы выбрали следующие пункты:', self.saloon, self.service, self.specialist)
+            self.end(update, context)
+        else:
+            if len(self.services) == 1:
+                query.edit_message_text(
+                    text="Выберете подходящего услугу из списка",
+                    reply_markup=keyboard_one_button(self.services)
+                )
+            if len(self.services) == 2:
+                query.edit_message_text(
+                    text="Выберете подходящего услугу из списка",
+                    reply_markup=keyboard_two_button(self.services),
+                )
+            if len(self.services) == 4:
+                query.edit_message_text(
+                    text="Выберете подходящего услугу из списка",
+                    reply_markup=keyboard_four_button(self.services),
+                )
+            if len(self.services) == 5:
+                query.edit_message_text(
+                    text="Выберете подходящего услугу из списка",
+                    reply_markup=keyboard_five_button(self.services),
+                )
 
-        if len(services) == 1:
-            query.edit_message_text(
-                text="Выберете подходящего услугу из списка",
-                reply_markup=keyboard_one_button(services)
-            )
-        if len(services) == 2:
-            query.edit_message_text(
-                text="Выберете подходящего услугу из списка",
-                reply_markup=keyboard_two_button(services),
-            )
-
-        return END
+            return CHOICE_SERVICE
 
     def end(self, update: Update, context: CallbackContext) -> int:
-
         query = update.callback_query
-        self.service = query.data
+        print("вы попали в стадию END", f"query.data --> {query.data} --> {self.service}")
         p = Purchase(
+            user=User.objects.get(name=self.username),
             salon=Salon.objects.get(address=self.saloon),
             specialist=Specialist.objects.get(name=self.specialist),
             service=Service.objects.get(title=self.service)
@@ -350,10 +340,10 @@ class Command(BaseCommand):
         query.edit_message_text(
             reply_markup=InlineKeyboardMarkup(keyboard),
             text=f"""Вы выбрали:
-                    салон на улице ➡ {self.saloon}, 
-                    мастер ➡ {self.specialist}, 
-                    услуга ➡ {self.service} 
-                    цена ➡ {p.service.price} рублей""",
+            ➡ салон на улице  {self.saloon}, 
+            ➡ мастер  {self.specialist}, 
+            ➡ услуга  {self.service} 
+            ➡ цена  {p.service.price} рублей""",
         )
 
 

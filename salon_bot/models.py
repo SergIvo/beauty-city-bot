@@ -42,6 +42,8 @@ class Salon(models.Model):
         Specialist,
         related_name='salons',
         verbose_name='Мастера')
+    services = models.ManyToManyField(Service, related_name='salons',
+                                      verbose_name='Услуги')
 
     def __str__(self):
         return self.address
