@@ -1,4 +1,39 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from ...models import User, Service, Specialist, Salon, Purchase
+
+def keyboard_time_button(s):
+    # dates = Purchase.object.filter()
+    keyboard = [
+        [
+            InlineKeyboardButton('1️⃣0️⃣:0️⃣0️⃣', callback_data='time 10'),
+            InlineKeyboardButton('1️⃣1️⃣:0️⃣0️⃣', callback_data='time 11'),
+        ],
+        [
+            InlineKeyboardButton('1️⃣2️⃣:0️⃣0️⃣', callback_data='time 12'),
+            InlineKeyboardButton('1️⃣3️⃣:0️⃣0️⃣', callback_data='time 13'),
+        ],
+        [
+            InlineKeyboardButton('1️⃣4️⃣:0️⃣0️⃣', callback_data='time 14'),
+            InlineKeyboardButton('1️⃣5️⃣:0️⃣0️⃣', callback_data='time 15'),
+        ],
+        [
+            InlineKeyboardButton('1️⃣6️⃣:0️⃣0️⃣', callback_data='time 16'),
+            InlineKeyboardButton('1️⃣7️⃣:0️⃣0️⃣', callback_data='time 17'),
+        ],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
+def keyboard_two_confirm_pdf_button():
+    keyboard = [
+        [
+            InlineKeyboardButton('✅ Подтверждаю', callback_data='confirm_pdf'),
+        ],
+        [
+            InlineKeyboardButton('❌ Отказываюсь', callback_data='not_confirm_pdf'),
+        ],
+    ]
+    return InlineKeyboardMarkup(keyboard)
 
 
 def keyboard_one_button(servises):

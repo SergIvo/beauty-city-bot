@@ -7,6 +7,7 @@ class User(AbstractBaseUser):
     chat_id = models.CharField('Id чата', max_length=50, default=None, unique=True)
     name = models.CharField('Имя клиента', max_length=50)
     phone_number = PhoneNumberField('Номер телефона клиента', region='RU')
+    Consent_Of_Personal_Data = models.BooleanField(default=False)
 
     USERNAME_FIELD = 'phone_number'
 
@@ -79,3 +80,4 @@ class Purchase(models.Model):
         null=True,
         blank=True
     )
+
