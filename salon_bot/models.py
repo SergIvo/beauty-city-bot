@@ -81,4 +81,3 @@ class Purchase(models.Model):
         null=True,
         blank=True
     )
-
