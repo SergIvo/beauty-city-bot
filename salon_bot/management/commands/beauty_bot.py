@@ -2,7 +2,7 @@ import os
 import logging
 from datetime import datetime
 from datetime import time
-
+from uuid import uuid4
 import phonenumbers
 from . import telegramcalendar, messages
 from ...models import User, Service, Specialist, Salon, Purchase
@@ -141,13 +141,10 @@ class Command(BaseCommand):
                 REQUEST_PHONE: [
                     CallbackQueryHandler(self.request_phone, pass_user_data=True)
                 ],
-                # END: [
-                #     CallbackQueryHandler(self.calendar_handler, pass_user_data=True),
-                #     CallbackQueryHandler(self.calendar_handler, pattern='^' + 'confirm' + '$', pass_user_data=True),
-                #     # CallbackQueryHandler(self.start, pattern='^' + 'main_menu' + '$', pass_user_data=True),
-                # ],
+                END: [
+                    CallbackQueryHandler(self.calendar_handler, pass_user_data=True),
+                ],
                 CALENDAR: [
-                    # CallbackQueryHandler(self.end, pass_user_data=True),
                     CallbackQueryHandler(self.start, pattern='^' + 'confirm' + '$'),
                     CallbackQueryHandler(self.start, pattern='^' + 'main_menu' + '$'),
                 ],
@@ -158,6 +155,7 @@ class Command(BaseCommand):
         phonenumber_handler = MessageHandler(Filters.contact, self.handle_phone)
         dispatcher.add_handler(phonenumber_handler)
         dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, self.finish))
+        dispatcher.add_handler(MessageHandler(Filters.command(False), self.calendar_handler))
         dispatcher.add_handler(CommandHandler('replay', self.replay_service))
         updater.start_polling()
         updater.idle()
@@ -173,6 +171,7 @@ class Command(BaseCommand):
 
     def start(self, update: Update, context: CallbackContext) -> int:
         """Send message on `/start`."""
+        chat_id = update.effective_message.chat_id
         try:
             user = update.message.from_user
             logger.info("User %s started the conversation.", user.first_name)
@@ -189,6 +188,15 @@ class Command(BaseCommand):
             ],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
+        app_dirpath = apps.get_app_config(APP_NAME).path
+        image_path = (
+                Path(app_dirpath) /
+                'management' /
+                'commands' /
+                '222.jpg'
+        )
+        with open(image_path, 'rb') as img_path:
+            self.bot.send_photo(chat_id=chat_id, photo=img_path)
         try:
             update.message.reply_text("Что вы хотите сделать?", reply_markup=reply_markup)
         except AttributeError:
@@ -228,7 +236,6 @@ class Command(BaseCommand):
         keyboard = [
             [
                 InlineKeyboardButton("История заказов", callback_data='history'),
-                InlineKeyboardButton("Записаться", callback_data='history'),
             ],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -243,9 +250,12 @@ class Command(BaseCommand):
         chat_id = update.effective_message.chat_id
         user = self.get_or_create_user(chat_id, update)
         purcheses = Purchase.objects.all().order_by('-datetime')
-        ps = [f'{count + 1}). {(p.service.title).capitalize()} у мастера {p.specialist} \n   адрес -> {p.salon} - \n \n \ ' \
-              f'Что бы повторить заказ, нажми сюда 👉/replay \n \n ' for count, p in enumerate(purcheses)]
+        ps = [f'/replay {p.id}). {(p.service.title).capitalize()} у мастера {p.specialist} \n   адрес -> {p.salon} - \n \n \ ' \
+              f'Что бы повторить заказ, нажми сюда 👉 \n \n ' for count, p in enumerate(purcheses)]
         messages = ' '.join(ps[:10])
+        key = str(uuid4())
+        value = update.message.text.partition(' ')[2]
+        context.user_data[key] = value
         self.bot.send_message(
             chat_id=chat_id,
             text=messages,
@@ -253,12 +263,14 @@ class Command(BaseCommand):
         return FIRST
 
     def replay_service(self, update: Update, context: CallbackContext):
+        # query = update.callback_query
+        # query.answer()
         purcheses = Purchase.objects.all().order_by('-datetime')
         chat_id = update.message.chat.id
         self.service = purcheses[0].service.title
         self.saloon = purcheses[0].salon.address
         self.specialist = purcheses[0].specialist.name
-        self.calendar_handler(update, context)
+        self.start(update, context)
 
 
     def three(self, update: Update, context: CallbackContext) -> int:
@@ -391,6 +403,8 @@ class Command(BaseCommand):
             return CHOICE_SERVICE
 
     def end(self, update: Update, context: CallbackContext) -> str:
+        print('you are in end')
+
         chat_id = update.effective_message.chat_id
         query = update.callback_query
         user = self.get_or_create_user(chat_id, update)
@@ -450,14 +464,17 @@ class Command(BaseCommand):
                     text=messages.calendar_message,
                     reply_markup=telegramcalendar.create_calendar())
         except AttributeError:
+            print('you are in calendar_handler', update)
+
             self.bot.send_message(
                 chat_id=update.effective_message.chat_id,
                 text=messages.calendar_message,
                 reply_markup=telegramcalendar.create_calendar())
-            print(self.bot.answer_callback_query)
-            self.choice_time(update, context)
+            # self.choice_time(update, context)
 
     def choice_time(self, update, context):
+        print('you are in time')
+
         try:
             query = update.callback_query
             query.answer()
@@ -469,12 +486,14 @@ class Command(BaseCommand):
                     reply_markup=keyboard_time_button(self.services),
                 )
         except AttributeError:
-            print('ggggggggg', update)
-            if 'DAY' in query.data:
-                query.edit_message_text(
-                    text="Выберете подходящее время из свободных на эту дату",
-                    reply_markup=keyboard_time_button(self.services),
-                )
+            print('ggggggggg', update.callback_query)
+            print('fffffffff', self.bot.answer_callback_query)
+            self.bot.send_message(
+                chat_id=update.effective_message.chat_id,
+                text="Выберете подходящее время из свободных на эту дату",
+                reply_markup=keyboard_time_button(self.services))
+
+
 
 
     def consent_confirm_pdf(self, update, context, chat_id):
@@ -580,6 +599,7 @@ class Command(BaseCommand):
         # query.answer()
         chat_id = update.effective_message.chat_id
         user = self.get_or_create_user(chat_id, update)
+        self.username = user.name
         # print("вы попали в стадию END", f"query.data --> {query.data} --> {self.service}")
 
         p = Purchase(
@@ -606,6 +626,15 @@ class Command(BaseCommand):
             ],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
+        app_dirpath = apps.get_app_config(APP_NAME).path
+        image_path = (
+                Path(app_dirpath) /
+                'management' /
+                'commands' /
+                '333.jpg'
+        )
+        with open(image_path, 'rb') as img_path:
+            self.bot.send_photo(chat_id=chat_id, photo=img_path)
         self.bot.send_message(
             chat_id,
             reply_markup=reply_markup,
