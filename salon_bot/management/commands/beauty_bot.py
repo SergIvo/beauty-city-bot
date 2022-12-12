@@ -155,7 +155,7 @@ class Command(BaseCommand):
         phonenumber_handler = MessageHandler(Filters.contact, self.handle_phone)
         dispatcher.add_handler(phonenumber_handler)
         dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, self.finish))
-        dispatcher.add_handler(MessageHandler(Filters.command(False), self.calendar_handler))
+        dispatcher.add_handler(MessageHandler(Filters.command(False), self.replay_service))
         dispatcher.add_handler(CommandHandler('replay', self.replay_service))
         updater.start_polling()
         updater.idle()
@@ -253,9 +253,9 @@ class Command(BaseCommand):
         ps = [f'/replay {p.id}). {(p.service.title).capitalize()} у мастера {p.specialist} \n   адрес -> {p.salon} - \n \n \ ' \
               f'Что бы повторить заказ, нажми сюда 👉 \n \n ' for count, p in enumerate(purcheses)]
         messages = ' '.join(ps[:10])
-        key = str(uuid4())
-        value = update.message.text.partition(' ')[2]
-        context.user_data[key] = value
+        # key = str(uuid4())
+        # value = update.message.text.partition(' ')[2]
+        # context.user_data[key] = value
         self.bot.send_message(
             chat_id=chat_id,
             text=messages,
@@ -263,6 +263,12 @@ class Command(BaseCommand):
         return FIRST
 
     def replay_service(self, update: Update, context: CallbackContext):
+        # key = context.args[0]
+
+        # загружаем значение и отправляем пользователю
+        # value = context.user_data.get(key, 'Not found')
+        # update.message.reply_text(value)
+        # print(value)
         # query = update.callback_query
         # query.answer()
         purcheses = Purchase.objects.all().order_by('-datetime')
